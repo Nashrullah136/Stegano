@@ -5,7 +5,7 @@ import random
 import base64
 
 from src.helper.file import File
-from src.helper.cipher import encrypt_vigenere
+from src.helper.cipher import encrypt_aes, encrypt_vigenere
 
 Wc = np.indices((8, 8)).sum(axis=0) % 2
 
@@ -33,7 +33,7 @@ class Inserter:
 
         self.ndarray[0][0][0] = self.ndarray[0][0][0] & 254 | sign
         if encrypted:
-            self.string_message = encrypt_vigenere(self.string_message, key)
+            self.string_message = encrypt_aes(self.string_message, key)
 
     def random_list(self, randomize_frames):
         sign = 1 if randomize_frames else 0
@@ -149,8 +149,9 @@ class Inserter:
         self.alpha = alpha
 
         self.string_message = str(len(self.message)) + '#' + self.extension + '#' + self.message
+        # print("> before enc", type(self.string_message))
         self.encrypt_message(encrypted, self.key)
-
+        # print("> after enc", type(self.string_message))
         bits = map(int, ''.join(
             [bin(ord(i)).lstrip('0b').rjust(8, '0') for i in self.string_message]))
         array_bit = list(bits)

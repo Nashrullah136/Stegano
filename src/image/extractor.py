@@ -4,7 +4,7 @@ import random
 import base64
 
 from src.helper.file import File
-from src.helper.cipher import decrypt_vigenere
+from src.helper.cipher import decrypt_aes
 
 Wc = np.indices((8, 8)).sum(axis=0) % 2
 
@@ -140,7 +140,7 @@ class Extractor:
                                         index += 1
 
         if encrypted:
-            self.string_message = decrypt_vigenere(message, self.key)
+            self.string_message = decrypt_aes(message, self.key)
         else:
             self.string_message = message
 
