@@ -1,10 +1,13 @@
+from email import message
 import numpy as np
 
 import random
 import base64
+from ..helper.deflate.skalg import *
+from math import ceil
 
 from src.helper.file import File
-from src.helper.cipher import decrypt_vigenere
+from src.helper.cipher import decrypt_aes
 
 Wc = np.indices((8, 8)).sum(axis=0) % 2
 
@@ -80,6 +83,63 @@ class Extractor:
                 index += 1
         return float(alpha_str)
 
+    def convert_to_binary(self, string):
+        return ''.join([bin(ord(i)).lstrip('0b').rjust(8, '0') for i in string])
+
+    def get_len_from_structure(self, msg):
+        len = []
+        index = 0
+        temp = ''
+        while msg[index] != "#":
+            if msg[index] != "|":
+                temp += msg[index]
+            else:
+                len.append(int(temp))
+                temp = ''
+            index += 1
+        len.append(int(temp))
+        index += 1
+        len.append(index)
+        return len
+
+    def extract_structure(self, msg, len):
+        index = 0
+        result = list()
+        len_in_bit = len[:2]
+        len[0] = ceil(len[0]/8)
+        len[1] = ceil(len[1]/8)
+        for length in len:
+            temp = msg[index:index+length]
+            result.append(temp)
+            index += length
+        result[0] = self.convert_to_binary(result[0])[:len_in_bit[0]]
+        result[1] = self.convert_to_binary(result[1])[:len_in_bit[1]]
+        return result
+
+    def destructure(self, message):
+        message_info = self.get_len_from_structure(message)
+        print("message_info > ", message_info)
+        return self.extract_structure(message[message_info.pop():], message_info)
+        # len_result1 = int(len_result1)
+        # len_char_result1 = ceil(len_result1/8)
+        # len_result2 = int(len_result2)
+        # len_char_result2 = ceil(len_result2/8)
+        # len_key_o = int(len_key_o)
+        # result1 = message[index:index+len_char_result1]
+        # result1 = (self.convert_to_binary(result1))[:len_result1]
+        # index += len_char_result1
+        # result2 = message[index:index+len_char_result2]
+        # result2 = (self.convert_to_binary(result2))[:len_result2]
+        # index += len_char_result2
+        # key_o = message[index:index+len_key_o]
+        # index += len_key_o
+        # key_s = message[index:]
+        # return result1, result2, key_o, key_s
+
+    def write_to_file(self, filename, body):
+        with open(filename, "w", encoding="utf-8") as file:
+            file.write(body)
+
     def extract_messages(self):
         self.seed = self.count_seed()
 
@@ -138,9 +198,16 @@ class Extractor:
                                             message += chr(int(temp, 2))
                                             temp = ""
                                         index += 1
-
+        self.write_to_file("structurize_message_ext.txt", message)
+        result1, result2, key_o, key_s = self.destructure(message)
+        self.write_to_file("result_ext.txt", result1)
+        self.write_to_file("result2_ext.txt", result2)
+        self.write_to_file("key_o_ext.txt", key_o)
+        self.write_to_file("key_s_ext.txt", key_s)
+        message = deflate().decode(result1+'\n'+result2, key_o, key_s)
+        self.write_to_file("encrypted_message_ext.txt", message)
         if encrypted:
-            self.string_message = decrypt_vigenere(message, self.key)
+            self.string_message = decrypt_aes(message, self.key)
         else:
             self.string_message = message
 

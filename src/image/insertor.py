@@ -1,11 +1,13 @@
 from tkinter import messagebox
 import numpy as np
+from ..helper.deflate.skalg import *
+from math import ceil
 
 import random
 import base64
 
 from src.helper.file import File
-from src.helper.cipher import encrypt_vigenere
+from src.helper.cipher import encrypt_aes, encrypt_vigenere
 
 Wc = np.indices((8, 8)).sum(axis=0) % 2
 
@@ -33,7 +35,7 @@ class Inserter:
 
         self.ndarray[0][0][0] = self.ndarray[0][0][0] & 254 | sign
         if encrypted:
-            self.string_message = encrypt_vigenere(self.string_message, key)
+            self.string_message = encrypt_aes(self.string_message, key)
 
     def random_list(self, randomize_frames):
         sign = 1 if randomize_frames else 0
@@ -143,16 +145,37 @@ class Inserter:
         h = idx // (self.color * self.w)
         return h, w, color
 
+    def convert_to_binary(self, string):
+        return ''.join([bin(ord(i)).lstrip('0b').rjust(8, '0') for i in string])
+
+    def structurize(self, result1, result2, key_o, key_s):
+        str_bits = self.convert_to_binary(str(len(result1))+'|'+str(len(result2))+'|'+str(len(key_o))+'|'+str(len(key_s))+'#')
+        padding_result1 = result1 + '0'*(8-len(result1)%8)
+        padding_result2 = result2 + '0'*(8-len(result2)%8)
+        str_bits += padding_result1 + padding_result2 + self.convert_to_binary(key_o + key_s)
+        return str_bits
+
+    def write_to_file(self, filename, body):
+        with open(filename, "w") as file:
+            file.write(body)
+    
     def insert_message(self, encrypted=False, randomize=False, method='bpcs', alpha=0.3):
         self.seed = self.count_seed()
         self.method = method
         self.alpha = alpha
 
         self.string_message = str(len(self.message)) + '#' + self.extension + '#' + self.message
+        self.write_to_file("string_message.txt", self.string_message)
         self.encrypt_message(encrypted, self.key)
-
-        bits = map(int, ''.join(
-            [bin(ord(i)).lstrip('0b').rjust(8, '0') for i in self.string_message]))
+        self.write_to_file("encrypted_message.txt", self.string_message)
+        result1, result2, key_o, key_s = deflate().encode(self.string_message, 300, 100)
+        self.write_to_file("result.txt", result1)
+        self.write_to_file("result2.txt", result2)
+        self.write_to_file("key_o.txt", key_o)
+        self.write_to_file("key_s.txt", key_s)
+        structurize_msg = self.structurize(result1, result2, key_o, key_s)
+        self.write_to_file("structurize_message.txt", structurize_msg)
+        bits = map(int, structurize_msg)
         array_bit = list(bits)
 
         if method == 'lsb':
