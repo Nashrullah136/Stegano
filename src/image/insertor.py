@@ -3,6 +3,7 @@ import numpy as np
 
 import random
 import base64
+import zlib
 
 from src.helper.file import File
 from src.helper.cipher import encrypt_aes, encrypt_vigenere
@@ -33,7 +34,7 @@ class Inserter:
 
         self.ndarray[0][0][0] = self.ndarray[0][0][0] & 254 | sign
         if encrypted:
-            self.string_message = encrypt_aes(self.string_message, key)
+            self.message = encrypt_aes(self.message, key)
 
     def random_list(self, randomize_frames):
         sign = 1 if randomize_frames else 0
@@ -143,19 +144,27 @@ class Inserter:
         h = idx // (self.color * self.w)
         return h, w, color
 
+
+    def compress_message(self):
+        compress = zlib.compressobj()
+        temp = compress.compress(bytes(self.message, 'utf-8'))
+        temp += compress.flush()
+        self.message = base64.b64encode(temp).decode('utf-8')
+
+    def write_to_file(self, filename, msg):
+        with open(filename, 'w') as f:
+            f.write(msg)
+
     def insert_message(self, encrypted=False, randomize=False, method='bpcs', alpha=0.3):
         self.seed = self.count_seed()
         self.method = method
         self.alpha = alpha
-
-        self.string_message = str(len(self.message)) + '#' + self.extension + '#' + self.message
-        # print("> before enc", type(self.string_message))
         self.encrypt_message(encrypted, self.key)
-        # print("> after enc", type(self.string_message))
-        bits = map(int, ''.join(
-            [bin(ord(i)).lstrip('0b').rjust(8, '0') for i in self.string_message]))
+        self.write_to_file('ins.txt', self.message)
+        self.compress_message()
+        self.string_message = str(len(self.message)) + '#' + self.extension + '#' + self.message
+        bits = map(int, ''.join([format(ord(i), '08b') for i in self.string_message]))
         array_bit = list(bits)
-
         if method == 'lsb':
             self.pixel_list = list(range(self.h * self.w * self.color))
             self.random_list(randomize)

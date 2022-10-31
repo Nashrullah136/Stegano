@@ -2,6 +2,7 @@ import numpy as np
 
 import random
 import base64
+import zlib
 
 from src.helper.file import File
 from src.helper.cipher import decrypt_aes
@@ -138,11 +139,8 @@ class Extractor:
                                             message += chr(int(temp, 2))
                                             temp = ""
                                         index += 1
-
-        if encrypted:
-            self.string_message = decrypt_aes(message, self.key)
-        else:
-            self.string_message = message
+        self.encrypted = encrypted
+        self.string_message = message
 
     def parse_message(self):
         message_info = self.string_message.split("#")
@@ -150,10 +148,22 @@ class Extractor:
         self.len_message = int(message_info[0])
         self.extension = message_info[1]
 
+    def decompress(self, message):
+        message = base64.b64decode(message.encode('utf-8'))
+        message = zlib.decompress(message)
+        return message.decode('utf-8')
+
+    def write_to_file(self, filename, msg):
+        with open(filename, 'w') as f:
+            f.write(msg)
+
     def write_secret_message(self):
         init = len(str(self.len_message)) + len(str(self.extension)) + 2
         decoded = self.string_message[init : init + self.len_message]
-
+        decoded = self.decompress(decoded)
+        self.write_to_file('ext.txt', decoded)
+        if self.encrypted:
+            decoded = decrypt_aes(decoded, self.key)
         bytes_file = decoded.encode('utf-8')
         bytes_file = base64.b64decode(bytes_file)
 
